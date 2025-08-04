@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Actors Image Match Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow-x: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      color: #ffffff;
+      background: #0d0d1f;
+    }
+
+    #particles-js {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      z-index: 1;
+      position: relative;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      text-align: center;
+      z-index: 3;
+    }
+
+    .controls {
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      background-color: #28a745;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.3s;
+      margin: 0.3rem;
+    }
+
+    button:hover {
+      background-color: #218838;
+    }
+
+    .memory-game {
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .card {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+    }
+
+    .card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .card.revealed img {
+      display: block;
+    }
+
+    .card.revealed {
+      background: #000;
+    }
+
+    #matchedNames {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.8);
+      color: #00ff88;
+      font-size: 1rem;
+      padding: 0.5rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      max-height: 25%;
+      overflow-y: auto;
+    }
+
+    @media (min-width: 500px) {
+      .memory-game {
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      }
+    }
+
+    @media (max-width: 499px) {
+      .memory-game {
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      }
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="particles-js"></div>
+  <h1>Actors Match - Level <span id="level">1</span></h1>
+
+  <div class="controls">
+    <button onclick="startLevel()">Start Level</button>
+  </div>
+
+  <div class="memory-game" id="memoryGame"></div>
+
+  <div id="guessSection" style="display:none; margin-top: 1rem; text-align: center;">
+    <h3>Guess the Celebrity Names</h3>
+    <p id="timer" style="font-weight:bold;"></p>
+    <div id="guessInputs"></div>
+    <button onclick="submitGuesses()">Submit Guesses</button>
+    <button onclick="giveUp()">Give Up</button>
+  </div>
+
+  <div id="matchedNames"></div>
+
+  <audio id="flipSound" src="flip.mp3" preload="auto"></audio>
+  <audio id="matchSound" src="match.mp3" preload="auto"></audio>
+
+  <script>
+    alert("👋 Welcome to the Actors Match Game by Sushanth Patel!");
+
+    const allImages = [
+      'Aamir Khan.webp',
+      'Ajay Devgan.webp',
+      'Akshay Kumar.webp',
+      'Allu Arjun.webp',
+      'Amitabh Bachchan.webp',
+      'Mahesh Babu.webp',
+      'Nani.webp',
+      'Pawan Kalyan.webp',
+      'Prabhas.webp',
+      'Jr.NTR.webp',
+      'Ram Charan.webp',
+      'Ranbir Kapoor.webp',
+      'Ritik Roshan.webp',
+      'Shah Rukh Khan.webp',
+      'Shahid Kapoor.webp'
+    ];
+
+    let unusedImages = [...allImages];
+    let currentLevel = 1;
+    const maxLevel = 8;
+    const memoryGame = document.getElementById('memoryGame');
+    const levelDisplay = document.getElementById('level');
+    const flipSound = document.getElementById('flipSound');
+    const matchSound = document.getElementById('matchSound');
+    let timerInterval;
+
+    function getRandomImages(count) {
+      if (unusedImages.length < count) unusedImages = [...allImages];
+      const selected = [];
+      while (selected.length < count) {
+        const index = Math.floor(Math.random() * unusedImages.length);
+        selected.push(unusedImages.splice(index, 1)[0]);
+      }
+      return selected;
+    }
+
+    function startLevel() {
+      clearInterval(timerInterval);
+      document.getElementById('guessSection').style.display = 'none';
+      document.querySelector('.controls button').style.display = 'none';
+      levelDisplay.textContent = currentLevel;
+      memoryGame.innerHTML = '';
+      document.getElementById('matchedNames').innerHTML = '';
+
+      if (currentLevel >= 6 && currentLevel <= 8) {
+        const guessImages = getRandomImages(5);
+        const guessSection = document.getElementById('guessSection');
+        guessSection.style.display = 'block';
+        document.getElementById('guessInputs').innerHTML = '';
+        memoryGame.innerHTML = '';
+
+        guessImages.forEach((imgUrl, index) => {
+          const card = document.createElement('div');
+          card.classList.add('card', 'revealed');
+          card.dataset.url = imgUrl;
+
+          const img = document.createElement('img');
+          img.src = imgUrl;
+          img.onerror = () => (img.src = 'fallback.webp');
+          card.appendChild(img);
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = 'Guess Name';
+          input.dataset.answer = imgUrl.replace('.webp', '');
+          input.style.marginTop = '0.5rem';
+          input.style.width = '90%';
+          input.style.padding = '0.4rem';
+          input.style.borderRadius = '5px';
+          input.style.border = '1px solid #ccc';
+
+          const revealBtn = document.createElement('button');
+          revealBtn.textContent = 'Reveal';
+          revealBtn.onclick = () => {
+            input.value = input.dataset.answer;
+          };
+
+          const wrapper = document.createElement('div');
+          wrapper.style.marginBottom = '1rem';
+          wrapper.style.display = 'flex';
+          wrapper.style.flexDirection = 'column';
+          wrapper.style.alignItems = 'center';
+          wrapper.appendChild(card);
+          wrapper.appendChild(input);
+          wrapper.appendChild(revealBtn);
+
+          memoryGame.appendChild(wrapper);
+        });
+
+        startTimer(60);
+        return;
+      }
+
+      const pairs = Math.min(currentLevel + 2, allImages.length);
+      const selectedImages = getRandomImages(pairs);
+      let cards = [...selectedImages, ...selectedImages];
+      cards.sort(() => 0.5 - Math.random());
+
+      let revealed = [];
+      let lock = false;
+      let matchedPairs = 0;
+
+      cards.forEach((imgUrl, i) => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.url = imgUrl;
+        card.dataset.index = i;
+
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.onerror = () => (img.src = 'fallback.webp');
+        card.appendChild(img);
+
+        card.addEventListener('click', () => {
+          if (lock || card.classList.contains('revealed')) return;
+          flipSound.play();
+          card.classList.add('revealed');
+          revealed.push(card);
+
+          if (revealed.length === 2) {
+            lock = true;
+            const [first, second] = revealed;
+            if (first.dataset.url === second.dataset.url) {
+              matchSound.play();
+
+              const matchedName = first.dataset.url.replace('.webp', '');
+              const nameDisplay = document.createElement('div');
+              nameDisplay.textContent = `✔️ ${matchedName}`;
+              document.getElementById('matchedNames').appendChild(nameDisplay);
+
+              revealed = [];
+              matchedPairs++;
+              lock = false;
+
+              if (matchedPairs === pairs) {
+                setTimeout(() => {
+                  currentLevel++;
+                  if (currentLevel <= maxLevel) {
+                    startLevel();
+                  } else {
+                    alert('🎉 Congratulations! You’ve completed all levels of Actors Match by Sushanth Patel!');
+                    window.open('next.html', '_blank');
+                  }
+                }, 1000);
+              }
+            } else {
+              setTimeout(() => {
+                first.classList.remove('revealed');
+                second.classList.remove('revealed');
+                revealed = [];
+                lock = false;
+              }, 800);
+            }
+          }
+        });
+
+        memoryGame.appendChild(card);
+      });
+    }
+
+    function startTimer(seconds) {
+      let timeLeft = seconds;
+      const timerDisplay = document.getElementById('timer');
+      timerDisplay.textContent = `Time Left: ${timeLeft}s`;
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = `Time Left: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          giveUp();
+        }
+      }, 1000);
+    }
+
+    function submitGuesses() {
+      const inputs = document.querySelectorAll('#guessInputs input');
+      let correct = 0;
+      inputs.forEach(input => {
+        if (input.value.trim().toLowerCase() === input.dataset.answer.toLowerCase()) {
+          input.style.border = '2px solid green';
+          correct++;
+        } else {
+          input.style.border = '2px solid red';
+        }
+      });
+
+      if (correct === inputs.length) {
+        alert('✅ All correct!');
+        currentLevel++;
+        startLevel();
+      } else {
+        alert('❌ Some guesses are incorrect. Try again or Reveal.');
+      }
+    }
+
+    function giveUp() {
+      const inputs = document.querySelectorAll('#guessInputs input');
+      inputs.forEach(input => {
+        input.value = input.dataset.answer;
+        input.style.border = '2px solid gray';
+      });
+      setTimeout(() => {
+        currentLevel++;
+        startLevel();
+      }, 3000);
+    }
+  </script>
+
+  <!-- particles.js -->
+  <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+  <script>
+    particlesJS("particles-js", {
+      "particles": {
+        "number": { "value": 80 },
+        "color": { "value": "#ffffff" },
+        "shape": { "type": "circle" },
+        "opacity": { "value": 0.5 },
+        "size": { "value": 3 },
+        "line_linked": {
+          "enable": true,
+          "distance": 150,
+          "color": "#ffffff",
+          "opacity": 0.4,
+          "width": 1
+        },
+        "move": { "enable": true, "speed": 2 }
+      },
+      "interactivity": {
+        "detect_on": "canvas",
+        "events": {
+          "onhover": { "enable": true, "mode": "repulse" }
+        }
+      },
+      "retina_detect": true
+    });
+  </script>
+</body>
+</html>
